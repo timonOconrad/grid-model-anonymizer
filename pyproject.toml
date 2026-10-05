@@ -1,0 +1,10 @@
+name = "grid-model-anonymizer"
+authors = [{name = "Timon Conrad"}, {name = "Bernd Schröder"}]
+license = {text = "GNU"}
+requires-python = ">=3.11"
+dependencies = [
+    "lxml==6.0.4",
+    "psutil==7.2.2",
+    "pytest==9.1.1"
+]
+pythonpath = "."

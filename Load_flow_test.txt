@@ -1,0 +1,80 @@
+Current Network: Nine-bus System 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at -1%.
+The averaged error for a load flow analysis is at 0.13%!
+
+Current Network: Nine-bus System 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at 0%.
+The averaged error for a load flow analysis is at 0.00%!
+
+Current Network: Nine-bus System 
+The maximum deviation of the load flow results is 0.01% in one of the elements, the Alteration Factor is at 3%.
+The averaged error for a load flow analysis is at 0.40%!
+
+Current Network: Nine-bus System 
+The maximum deviation of the load flow results is 0.01% in one of the elements, the Alteration Factor is at 5%.
+The averaged error for a load flow analysis is at 0.67%!
+
+Current Network: Nine-bus System 
+The maximum deviation of the load flow results is 0.03% in one of the elements, the Alteration Factor is at 10%.
+The averaged error for load flow analysis is larger than 1% with 1.34%! Use a smaller alteration factor to reduce the error.
+
+Current Network: IEEE 13 Node Feeder 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at -1%.
+The averaged error for a load flow analysis is at 0.00%!
+
+Current Network: IEEE 13 Node Feeder 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at 0%.
+The averaged error for a load flow analysis is at 0.00%!
+
+Current Network: IEEE 13 Node Feeder 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at 3%.
+The averaged error for a load flow analysis is at 0.00%!
+
+Current Network: IEEE 13 Node Feeder 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at 5%.
+The averaged error for a load flow analysis is at 0.00%!
+
+Current Network: IEEE 13 Node Feeder 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at 10%.
+The averaged error for a load flow analysis is at 0.01%!
+
+Current Network: 14 Bus System(1) 
+The maximum deviation of the load flow results is 0.01% in one of the elements, the Alteration Factor is at -1%.
+The averaged error for a load flow analysis is at 0.47%!
+
+Current Network: 14 Bus System(1) 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at 0%.
+The averaged error for a load flow analysis is at 0.00%!
+
+Current Network: 14 Bus System(1) 
+The maximum deviation of the load flow results is 0.03% in one of the elements, the Alteration Factor is at 3%.
+The averaged error for load flow analysis is larger than 1% with 1.40%! Use a smaller alteration factor to reduce the error.
+
+Current Network: 14 Bus System(1) 
+The maximum deviation of the load flow results is 0.05% in one of the elements, the Alteration Factor is at 5%.
+The averaged error for load flow analysis is larger than 1% with 2.33%! Use a smaller alteration factor to reduce the error.
+
+Current Network: 14 Bus System(1) 
+The maximum deviation of the load flow results is 0.10% in one of the elements, the Alteration Factor is at 10%.
+The averaged error for load flow analysis is larger than 1% with 4.64%! Use a smaller alteration factor to reduce the error.
+
+Current Network: 39 Bus New England System 
+The maximum deviation of the load flow results is 0.01% in one of the elements, the Alteration Factor is at -1%.
+The averaged error for a load flow analysis is at 0.21%!
+
+Current Network: 39 Bus New England System 
+The maximum deviation of the load flow results is 0.00% in one of the elements, the Alteration Factor is at 0%.
+The averaged error for a load flow analysis is at 0.00%!
+
+Current Network: 39 Bus New England System 
+The maximum deviation of the load flow results is 0.03% in one of the elements, the Alteration Factor is at 3%.
+The averaged error for a load flow analysis is at 0.62%!
+
+Current Network: 39 Bus New England System 
+The maximum deviation of the load flow results is 0.05% in one of the elements, the Alteration Factor is at 5%.
+The averaged error for load flow analysis is larger than 1% with 1.04%! Use a smaller alteration factor to reduce the error.
+
+Current Network: 39 Bus New England System 
+The maximum deviation of the load flow results is 0.09% in one of the elements, the Alteration Factor is at 10%.
+The averaged error for load flow analysis is larger than 1% with 2.07%! Use a smaller alteration factor to reduce the error.
+

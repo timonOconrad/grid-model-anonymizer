@@ -1,0 +1,21 @@
+With a Test File Folder,
+    A Folder that consists of only the test files, for each data type
+
+An Anon Folder   
+    Just for the anonymized files
+
+An Reverse Folder   
+    Just for the Reversed files
+
+A Mapping folder, 
+    just for the mappings
+
+Go through the data types and for each test file:
+    Run an anonymization,
+    run a Reverse
+    raised errors are stored in a log file, do not stop the data flow
+
+Also try some data testing, with pytest. 
+Assert comparisons between the orig and reverse.
+
+1.

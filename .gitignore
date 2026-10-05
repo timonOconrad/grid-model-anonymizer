@@ -1,0 +1,9 @@
+.vs/*
+.vscode/*
+__pycache__/*
+**/__pycache__/
+*.pfd
+*.zip
+*.json
+*.csv
+*.xml
