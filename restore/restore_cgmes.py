@@ -216,8 +216,8 @@ def restore_cgmes(
 
     logger.info("=== anym_cgmes.py: Start Restore ===")
 
-    line_map, anon_rev, time_rev, cim_rev, __, gps_map, prefix = utils.get_mappings(
-        mapping_path
+    line_map, anon_rev, time_rev, cim_rev, __, gps_map, prefix, _, _ = (
+        utils.get_mappings(mapping_path)
     )
 
     with tempfile.TemporaryDirectory() as tmp_str:

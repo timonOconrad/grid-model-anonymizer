@@ -105,6 +105,9 @@ class SeededNameAnonymizer:
         # mapping which line was used before to restore original length and impedance values
         self.line_mapping: Dict[str, str] = {}
 
+        self.project_unit_system: int = 0
+        self.project_unit: str = ""
+
         # mapping when the time for case studies are set
         time_adding = int(get_hash_str(seed, "study_casereset"), 16)
         self.time_adding: int = int(
@@ -198,6 +201,8 @@ def save_mapping_json(path: Path, anonymizer: SeededNameAnonymizer):
         "prefix": anonymizer.prefix,
         "length": anonymizer.length,
         "time_mapping": anonymizer.time_mapping,
+        "unit_system": anonymizer.project_unit_system,
+        "unit": anonymizer.project_unit,
         # unified mapping for all ANON_* strings
         "anon_mapping": anonymizer.forward,
         "line_mapping": anonymizer.line_mapping,
@@ -282,6 +287,9 @@ def get_mappings(
 
     gps_map: Dict[str, dict] = data.get("gps_mapping", {}) or {}
 
+    unit_system = data.get("unit_system", 0) or 0
+    unit = data.get("unit", "") or ""
+
     prefix = data.get("prefix", "ANON_") or "ANON_"
 
     return (
@@ -292,6 +300,8 @@ def get_mappings(
         cim_map,
         gps_map,
         prefix,
+        unit,
+        unit_system,
     )
 
 

@@ -46,8 +46,12 @@ logger = logging.getLogger("pf_utils.py")
 IMPEDANCE_TYPES = [
     "rline",
     "xline",
+    "cline",
+    "lline",
     "rline0",
     "xline0",
+    "cline0",
+    "lline0",
 ]  # do the 0 impedances actually need to be reset?
 
 
@@ -269,6 +273,7 @@ class PfObjects:
             "*.IntPlannedout",
             "*.EvtShc",
             "*.IntCase",
+            "*.SetPrj",
         ]
         for pat in patterns:
             new_objs = project.GetContents(pat, 1)
@@ -539,6 +544,19 @@ def get_full_name(obj) -> str:
         return f"{obj.GetClassName()}::{get_loc_name(obj)}"
 
 
+def set_project_unit(obj, desired_unit_system=0, desired_unit="k"):
+
+    unit_system = get_str_attr(obj, "ilenunit")
+    current_unit = get_str_attr(obj, "clenexp")
+
+    if unit_system != desired_unit_system:
+        set_str_attr(obj, "ilenunit", desired_unit_system)
+    if current_unit != desired_unit and desired_unit_system == 0:
+        set_str_attr(obj, "clenexp", desired_unit)
+
+    return unit_system, current_unit
+
+
 def _to_project_relative(full_name: str) -> str:
     """Trim a full PF object path down to the part relative to the project."""
     marker = r"\Network Model.IntPrjfolder"
@@ -696,7 +714,7 @@ def desc_normalize(s: str) -> str:
     if s is None:
         return ""
 
-    t = str(s).replace("(", "").replace(")", "")
+    t = str(s)
 
     out = []
     prev_space = False
@@ -987,7 +1005,9 @@ def get_load_flow_results(
 
     # get load flow object and execute
     ldf_object = app.GetFromStudyCase("ComLdf")  # get load flow object
-    ldf_object.Execute()  # execute load flow
+    rc = ldf_object.Execute()  # execute load flow
+    if rc != 0:
+        return
     load_flow_results = {"generators": [], "lines": [], "busses": []}
 
     # get the generators and their active/reactive power and loading
@@ -1004,7 +1024,9 @@ def get_load_flow_results(
 
         try:
             genloading = getattr(gen, "c:loading")  # get loading
-            gen_entry = {"loading": genloading}
+            gen_entry = {
+                "loading": genloading,
+            }
 
         except AttributeError:
             gen_entry = "Unknown"

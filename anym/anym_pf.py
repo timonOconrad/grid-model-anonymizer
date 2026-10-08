@@ -343,28 +343,39 @@ def set_line_length(obj: object, anonymizer: utils.SeededNameAnonymizer) -> None
     old_len = pf_utils.get_float_attr(obj, "dline")
     if old_len is None:
         return
-
     # create the new line type from old one
-    ln_type = obj.GetType()
+    try:
+        ln_type = obj.GetType()
+    except AttributeError:
+        ln_type = obj.GetAttribute("typ_id")
+
+    if ln_type is None:
+        # some lines are just clutches without relevant impedance
+        # that are skipped here
+        if obj.GetAttribute("c_ptow"):
+            return
+        # some lines are divided into segments, if this is the case
+        # then the line setting will be done in the segment and the
+        # total line can be skipped
+        try:
+            c = obj.GetChildren(0)
+            fullname = pf_utils.get_full_name(c[0])
+            if fullname.endswith("ElmLnesec"):
+                return
+            else:
+                logger.debug("Odd Child of Line Element: %s", fullname)
+        except AttributeError as e:
+            raise AttributeError from e
+
     ln_name = pf_utils.get_loc_name(ln_type)
     try:
         new_type = create_new_line_type(ln_type, new_name)
-
-        alteration = utils.get_alteration(
-            anonymizer=anonymizer,
-            name="length",
-            current_id=ln_name,
-        )
-        new_length = old_len * alteration
-        ratio = old_len / new_length
+        # catches Line Types that are read-only and can not be altered
+        if new_type is None:
+            return
+        ratio = old_len
         # reset the impedance, since the new line length is always 1 km the ratio = old length
-        set_impedances(
-            ln_type,
-            new_type,
-            ratio,
-            anonymizer,
-            ln_name,
-        )
+        set_impedances(ln_type, new_type, ratio, anonymizer, ln_name)
 
         # save the new line in the anonymizer
         anonymizer.line_mapping.setdefault(
@@ -375,7 +386,7 @@ def set_line_length(obj: object, anonymizer: utils.SeededNameAnonymizer) -> None
             },
         )
         # reset the line data
-        pf_utils.safe_set(obj, "dline", new_length, verbose=False)
+        pf_utils.safe_set(obj, "dline", float(1), verbose=False)
         pf_utils.safe_set(obj, "typ_id", new_type, verbose=False)
     except AttributeError as e:
         raise AttributeError from e
@@ -410,7 +421,7 @@ def create_new_line_type(old_type, new_name: str):
 # ----------------------------
 
 
-def anonymize_time(obj, anonymizer):
+def anonymize_time(obj, anonymizer: utils.SeededNameAnonymizer):
     """
     Set a new anonymized time for powerfactory object.
 
@@ -482,6 +493,18 @@ def anonymize_objects(
     try:
         for obj in objects:
             full = obj.GetFullName()
+            if full.endswith(".SetPrj"):
+                anonymizer.project_unit_system, anonymizer.project_unit = (
+                    pf_utils.set_project_unit(obj)
+                )
+                break
+    finally:
+        pf_utils.pf_bulk_mode_end(app)
+
+    pf_utils.pf_bulk_mode_begin(app)
+    try:
+        for obj in objects:
+            full = obj.GetFullName()
             if not full:
                 continue
             if full.endswith(".IntCase"):
@@ -493,6 +516,7 @@ def anonymize_objects(
                 or full.endswith(".IntUser")
                 or full.startswith(r"\Lib.IntLibrary")
                 or full.endswith(".IntFltcases")
+                or full.endswith(".SetPrj")
                 or not utils.has_suffix(full)
             ):
                 continue
@@ -532,22 +556,6 @@ def anonymize_objects(
                 if new_name != orig_loc:
                     pf_utils.make_unique_if_needed(obj, new_name, anonymizer)
 
-            # (redundant second call removed in original? kept behavior minimal)
-            anonymize_string_fields(
-                obj,
-                anonymizer=anonymizer,
-                fields=[
-                    "sernum",
-                    "constr",
-                    "chr_name",
-                    "dar_src",
-                    "manuf",
-                    "for_name",
-                    "foreignKey",
-                ],
-                empty_as_zero=True,
-            )
-
     finally:
         pf_utils.pf_bulk_mode_end(app)
 
@@ -558,6 +566,7 @@ def anonymize_objects(
             if (
                 full.endswith(".IntPrj")
                 or full.endswith(".IntUser")
+                or full.endswith(".SetPrj")
                 or full == ""
                 or full is None
             ):
@@ -572,12 +581,7 @@ def anonymize_objects(
                 orig_cim_id=orig_cim,
                 orig_loc_name_for_jitter=orig_loc,
             )
-        for obj in objects:
-            try:
-                set_line_length(obj, anonymizer=anonymizer)
-            except AttributeError:
-                logger.warning("No Line Setting possible! Impedance Alteration skipped")
-                break
+            set_line_length(obj, anonymizer=anonymizer)
     finally:
         pf_utils.pf_bulk_mode_end(app)
 
@@ -711,15 +715,7 @@ def check_load_flow_accuracy(
     expected range. Give a warning if the averaged error is larger than 1% and log the maximum
     deviation of the load flow results.
     """
-    (
-        _,
-        anon_rev,
-        _,
-        _,
-        _,
-        _,
-        prefix,
-    ) = utils.get_mappings(mapping_out_path)
+    _, anon_rev, _, _, _, _, prefix, _, _ = utils.get_mappings(mapping_out_path)
 
     app = pf.GetApplication()
     orig_ldf_results = pf_utils.get_load_flow_results(app, orig_path, anon_rev, prefix)
@@ -732,6 +728,8 @@ def check_load_flow_accuracy(
         for elem_key, elem_entry in type_entry.items():
 
             for value_key, orig_value_entry in elem_entry.items():
+                if anym_ldf_results[type_key][elem_key] == "Unknown":
+                    continue
                 anym_value_entry = anym_ldf_results[type_key][elem_key][value_key]
                 try:
                     rel_error = (orig_value_entry - anym_value_entry) / orig_value_entry

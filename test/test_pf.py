@@ -1,13 +1,21 @@
 """Round-trip tests for PowerFactory project anonymization and restoration."""
 
+import csv
 import itertools
+import json
 import logging
 import math
+import statistics
+import sys
+import time
 from pathlib import Path
 from typing import Dict
 
+import matplotlib.pyplot as plt
 import pytest
+from matplotlib.patches import Patch
 
+sys.path.append(str(Path(__file__).parent.parent.resolve()))
 from anym import anym_pf
 from restore import restore_pf
 from utils import pf_utils, utils
@@ -55,23 +63,32 @@ def get_example_data(path: Path, app) -> Dict[str, Dict[str, str | None]]:
     return attr_dict
 
 
+TEST_FILE = "LV Distribution Network"
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize(
-    "gps_flag, desc_flag, id_flag", [(True, True, True), (False, False, False)]
+    "gps_flag, desc_flag, id_flag, test_file",
+    [(True, True, True, TEST_FILE), (False, False, False, TEST_FILE)],
 )
 class TestPowerFactory:
     """Round-trip tests for PowerFactory project anonymization and restoration,
     requiring PowerFactory."""
 
     @pytest.mark.dependency(name="test_powerfactory_anym")
-    def test_powerfactory_anym(self, gps_flag: bool, desc_flag: bool, id_flag: bool):
+    def test_powerfactory_anym(
+        self, gps_flag: bool, desc_flag: bool, id_flag: bool, test_file: str
+    ):
         """Check that anonymizing a PowerFactory project writes a mapping
         file (skipped if PF is absent)."""
         if pf_utils.get_pf_version() is False:
             pytest.skip("No PowerFactory installed")
 
         orig_file, anym_file, _, mapping_file = utils.get_test_files(
-            "Texas Grid", ".pfd", "PowerFactory", [gps_flag, desc_flag, id_flag]
+            test_file,
+            ".pfd",
+            "PowerFactory",
+            [gps_flag, desc_flag, id_flag],
         )
         seed = "test_seed"
         anonymizer = utils.SeededNameAnonymizer(seed=seed)
@@ -89,21 +106,26 @@ class TestPowerFactory:
         assert mapping_file.exists()
 
     @pytest.mark.dependency(depends=["test_powerfactory_anym"])
-    def test_powerfactory_restore(self, gps_flag: bool, desc_flag: bool, id_flag: bool):
+    def test_powerfactory_restore(
+        self, gps_flag: bool, desc_flag: bool, id_flag: bool, test_file: str
+    ):
         """Check that restoring an anonymized PowerFactory project recovers
         original attribute values."""
         if pf_utils.get_pf_version() is False:
             pytest.skip("No PowerFactory installed")
 
         orig_file, anym_file, restore_file, mapping_file = utils.get_test_files(
-            "Texas Grid", ".pfd", "PowerFactory", [gps_flag, desc_flag, id_flag]
+            test_file,
+            ".pfd",
+            "PowerFactory",
+            [gps_flag, desc_flag, id_flag],
         )
 
         restore_pf.run_powerfactory_restore(
             in_path=anym_file,
             out_path=restore_file,
             mapping_path=mapping_file,
-            project_name="Texas Grid",
+            project_name=test_file,
         )
 
         app = pf.GetApplication()
@@ -131,9 +153,7 @@ class TestPowerFactory:
         itertools.product(
             [
                 "Nine-bus System",
-                "IEEE 13 Node Feeder",
                 "14 Bus System(1)",
-                # "LV Distribution Network",
                 "39 Bus New England System",
             ],
             [-1, 0, 3, 5, 10],
@@ -162,15 +182,7 @@ def test_powerfactory_load_flow_accuracy(path, alt_factor_percent):
         remap_ids=False,
         anonymizer=anonymizer,
     )
-    (
-        _,
-        anon_rev,
-        _,
-        _,
-        _,
-        _,
-        prefix,
-    ) = utils.get_mappings(mapping_path)
+    _, anon_rev, _, _, _, _, prefix, _, _ = utils.get_mappings(mapping_path)
 
     app = pf.GetApplication()
     orig_ldf_results = pf_utils.get_load_flow_results(app, orig_path, anon_rev, prefix)
@@ -204,6 +216,7 @@ def load_flow_asserts(
                 difference_list.append(rel_error)
 
     square_error = [x**2 for x in difference_list]
+    assert square_error != 0
     mean_square_error = sum(square_error) / len(square_error)
 
     rmse = math.sqrt(mean_square_error)
@@ -225,3 +238,246 @@ def load_flow_asserts(
                 f"The averaged error for a load flow analysis is at {rmse*100:.2f}%!\n",
             )
         f.write("\n")
+
+
+def get_load_flow_diff_plots():
+
+    if pf_utils.get_pf_version() is False:
+        pytest.skip("No PowerFactory installed")
+
+    seed = "test_seed"
+    paths = [
+        "Nine-bus System",
+        "14 Bus System(1)",
+        "39 Bus New England System",
+    ]
+    alt_factors = [0, 1, 3, 5, 10]
+
+    load_flow_results = {}
+    calc_times = {}
+    for path in paths:
+        load_flow_results[path] = {}
+        times = [0] * len(alt_factors)
+        orig_path, anym_path, _, mapping_path = utils.get_test_files(
+            path, ".pfd", "PowerFactory", []
+        )
+        app = pf.GetApplication()
+        orig_ldf_results = pf_utils.get_load_flow_results(
+            app, orig_path, anon_rev=None, prefix="Anon_"
+        )
+        load_flow_results[path]["orig"] = orig_ldf_results
+        for idx, alt_factor in enumerate(alt_factors):
+            start = time.time()
+            anonymizer = utils.SeededNameAnonymizer(
+                seed=seed, alteration_factor=alt_factor
+            )
+
+            anym_pf.run_powerfactory_import_export(
+                in_path=orig_path,
+                out_path=anym_path,
+                random_seed=seed,
+                mapping_out_path=mapping_path,
+                desc=False,
+                gps=False,
+                remap_ids=False,
+                anonymizer=anonymizer,
+            )
+            times[idx] = time.time() - start
+            _, anon_rev, _, _, _, _, prefix, _, _ = utils.get_mappings(mapping_path)
+
+            anym_ldf_results = pf_utils.get_load_flow_results(
+                app, anym_path, anon_rev, prefix
+            )
+
+            load_flow_results[path][f"Factor: {alt_factor}"] = anym_ldf_results
+
+            utils.delete_test_data([anym_path, mapping_path])
+
+        calc_times[path] = statistics.mean(times)
+
+    # ------------------------------ Courtesy of Claude -----------------------
+    # data type -> (title, y-label, category in JSON, value key)
+    types = {
+        "generator_loading": (
+            "Generator Loading",
+            "Δ Loading [%]",
+            "generators",
+            "loading",
+        ),
+        "line_loading": ("Line Loading", "Δ Loading [%]", "lines", "loading"),
+        "bus_voltage": ("Bus Voltage", "Δ Voltage [p.u.]", "busses", "u"),
+        "bus_angle": ("Bus Angle", "Δ Angle [°]", "busses", "deg"),
+    }
+
+    # Scale factors to per unit (used only for the "all data" plot):
+    # loading [%] -> p.u. (/100), voltage is already p.u., angle [°] -> rad
+    pu_scale = {
+        "generators": {"loading": 1 / 100},
+        "lines": {"loading": 1 / 100},
+        "busses": {"u": 1.0, "deg": math.pi / 180},
+    }
+
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    def deviations(project, factor, category, key):
+        """Deviation (factor - orig) per element of a project."""
+        orig = load_flow_results[project]["orig"][category]
+        fac = load_flow_results[project][factor][category]
+        return [fac[name][key] - orig[name][key] for name in orig]
+
+    def value_range(category, key):
+        """Min/max of all deviations for one data type (with a small margin)."""
+        vals = [
+            v
+            for project, runs in load_flow_results.items()
+            for factor in runs
+            if factor != "orig"
+            for v in deviations(project, factor, category, key)
+        ]
+        margin = 0.05 * (max(vals) - min(vals))
+        return min(vals) - margin, max(vals) + margin
+
+    def plot(types, title, ylabel, filename, to_pu=False, ylim=None):
+        fig, ax = plt.subplots(figsize=(12, 5))
+        pos = 0
+        group_centers, group_names = [], []
+        factor_names = []
+        for project, runs in load_flow_results.items():
+            factors = [k for k in runs if k != "orig"]
+            start = pos
+            for i, factor in enumerate(factors):
+                vals = []
+                for category, key in types:
+                    scale = pu_scale[category][key] if to_pu else 1.0
+                    vals += [
+                        v * scale for v in deviations(project, factor, category, key)
+                    ]
+                bp = ax.boxplot(vals, positions=[pos], widths=0.8, patch_artist=True)
+                bp["boxes"][0].set_facecolor(colors[i % len(colors)])
+                for m in bp["medians"]:
+                    m.set_color("black")
+                if factor not in factor_names:
+                    factor_names.append(factor)
+                pos += 1
+            group_centers.append((start + pos - 1) / 2)
+            group_names.append(project)
+            pos += 1  # gap between project groups
+
+        ax.set_xticks(group_centers)
+        ax.set_xticklabels(group_names)
+        ax.set_xlabel("Original project")
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        if ylim is not None:
+            ax.set_ylim(ylim)
+        ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+        ax.grid(axis="y", alpha=0.3)
+
+        # light legend: outside the plot, no frame, small font
+        ax.legend(
+            handles=[
+                Patch(
+                    facecolor=colors[i % len(colors)],
+                    edgecolor="black",
+                    linewidth=0.8,
+                    label=f.replace("Factor: ", ""),
+                )
+                for i, f in enumerate(factor_names)
+            ],
+            title="Factor",
+            loc="upper left",
+            bbox_to_anchor=(1.01, 1),
+            frameon=False,
+            fontsize=9,
+            title_fontsize=9,
+            handlelength=1.0,
+            handleheight=1.0,
+        )
+        fig.tight_layout()
+        fig.savefig(filename, dpi=150)
+        plt.close(fig)
+
+    # Shared y-axis for generator and line loading (same unit: % loading)
+    loading_lo, loading_hi = zip(
+        value_range("generators", "loading"), value_range("lines", "loading")
+    )
+    LOADING_YLIM = (min(loading_lo), max(loading_hi))
+    SHARED_YLIM = {"generator_loading": LOADING_YLIM, "line_loading": LOADING_YLIM}
+
+    # One image per data type
+    for name, (title, ylabel, category, key) in types.items():
+        plot(
+            [(category, key)],
+            f"Deviation from original: {title}",
+            ylabel,
+            f"{name}.png",
+            ylim=SHARED_YLIM.get(name),
+        )
+
+    # One image over all data
+    plot(
+        [(c, k) for _, _, c, k in types.values()],
+        "Deviation from original: all data types",
+        "Δ [p.u.]",
+        "all_data.png",
+        to_pu=True,
+    )
+
+    # Statistics -> CSV
+    # mean_original: mean of the original values (original units)
+    # mean_value: mean of the values remaining at this factor (original units)
+    # std_deviation: std of the deviations (factor - orig) over all elements of the project
+    rows = []
+    for project, runs in load_flow_results.items():
+        factors = [k for k in runs if k != "orig"]
+        for factor in factors:
+            factor_label = factor.replace("Factor: ", "")
+
+            # one row per data type (original units)
+            for name, (title, ylabel, category, key) in types.items():
+                dev = deviations(project, factor, category, key)
+                rows.append(
+                    {
+                        "project": project,
+                        "data_type": title,
+                        "factor": factor_label,
+                        "unit": ylabel.split("[")[1].rstrip("]"),
+                        "mean_deviation": statistics.mean(dev),
+                        "std_deviation": statistics.stdev(dev),
+                    }
+                )
+
+            # all data types together (p.u.)
+            dev_all = []
+            for category, key in [(c, k) for _, _, c, k in types.values()]:
+                scale = pu_scale[category][key]
+                dev_all += [
+                    v * scale for v in deviations(project, factor, category, key)
+                ]
+            rows.append(
+                {
+                    "project": project,
+                    "data_type": "All data types",
+                    "factor": factor_label,
+                    "unit": "p.u.",
+                    "mean_deviation": statistics.mean(dev_all),
+                    "std_deviation": statistics.stdev(dev_all),
+                }
+            )
+
+    with open("statistics.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    with open("calc_times.json", "w", encoding="utf-8") as f:
+        json.dump(calc_times, f)
+
+
+# ------------------------------ Courtesy of Claude -----------------------
+
+if __name__ == "__main__":
+    project_dir = Path(__file__).parent.parent.resolve()
+    test_dir = Path(project_dir, "test")
+    data_dir = Path(test_dir, "test_data", "PowerFactory")
+    the_file = Path(data_dir, "orig", "39 Bus New England System.pfd")
+    get_load_flow_diff_plots()

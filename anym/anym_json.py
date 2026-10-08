@@ -256,15 +256,7 @@ def restore_json_anonymization(
     logger.info("Starting Restoration of JSON Data")
 
     data = load_json_file(input_json)
-    (
-        _,
-        anon_rev,
-        _,
-        _,
-        _,
-        _,
-        prefix,
-    ) = utils.get_mappings(mapping_input)
+    _, anon_rev, _, _, _, _, prefix, _, _ = utils.get_mappings(mapping_input)
 
     if isinstance(data, dict):
         data = _restore_json_dict(data, anon_rev, prefix)

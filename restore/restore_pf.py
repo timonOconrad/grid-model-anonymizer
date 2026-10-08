@@ -459,6 +459,8 @@ def restore_from_mapping(app, mapping_path: Path):
         cim_map,
         gps_map,
         prefix,
+        unit,
+        unit_system,
     ) = utils.get_mappings(mapping_path)
 
     objects = pf_utils.collect_unique_objects_for_anonymization(app)
@@ -514,6 +516,19 @@ def restore_from_mapping(app, mapping_path: Path):
     pf_utils.pf_bulk_mode_begin(app)
     try:
         restore_times(objects, time_rev)
+    finally:
+        pf_utils.pf_bulk_mode_end(app)
+
+    # ---------------------------------------------------------
+    # 5) Restore the time stamps for each case
+    # ---------------------------------------------------------
+
+    try:
+        for obj in objects:
+            full = obj.GetFullName()
+            if full.endswith(".SetPrj"):
+                _ = pf_utils.set_project_unit(obj, unit_system, unit)
+                break
     finally:
         pf_utils.pf_bulk_mode_end(app)
 
